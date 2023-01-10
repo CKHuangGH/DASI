@@ -111,24 +111,24 @@ def checkconfigreloadtime():
         if item['job_name']=='cluster1':
             return item['scrape_interval']
 
+def inittime():
+    scrtime=getconfigstatus()
+    scrtime=scrtime.strip("s") 
+    changereloadtime(int(scrtime))
+    print(checkconfigreloadtime())
+    savefirst=time.perf_counter()
 
+    print(str(int(scrtime)+5) + 's')
+    while 1:
+        if checkconfigreloadtime() == str(int(scrtime)+5) + 's':
+            saveend=time.perf_counter()
+            print(checkconfigreloadtime())
+            break
+        else:
+            time.sleep(0.2)
+            print(checkconfigreloadtime())
 
-scrtime=getconfigstatus()
-scrtime=scrtime.strip("s") 
-changereloadtime(int(scrtime))
-print(checkconfigreloadtime())
-savefirst=time.perf_counter()
+    print(saveend+180)
+    print(scrtime)
 
-print(str(int(scrtime)+5) + 's')
-while 1:
-    if checkconfigreloadtime() == str(int(scrtime)+5) + 's':
-        saveend=time.perf_counter()
-        print(checkconfigreloadtime())
-        break
-    else:
-        time.sleep(0.2)
-        print(checkconfigreloadtime())
-
-print(saveend+180)
-
-print(scrtime)
+inittime()
