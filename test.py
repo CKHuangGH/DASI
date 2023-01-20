@@ -131,4 +131,12 @@ def inittime():
     print(saveend+180)
     print(scrtime)
 
-inittime()
+
+reloadtime=int(time.perf_counter())
+while 1:
+    currenttime=int(time.perf_counter())
+    if currenttime%reloadtime == 0:
+        print(currenttime)
+        time.sleep(1)
+    else:
+        time.sleep(1)
