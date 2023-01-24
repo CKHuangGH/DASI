@@ -114,9 +114,9 @@ def checkconfigreloadtime():
 def inittime():
     scrtime=getconfigstatus()
     scrtime=scrtime.strip("s") 
-    changereloadtime(int(scrtime))
-    print(checkconfigreloadtime())
-    savefirst=time.perf_counter()
+    #changereloadtime(int(scrtime))
+    #print(checkconfigreloadtime())
+    #savefirst=time.perf_counter()
 
     print(str(int(scrtime)+5) + 's')
     while 1:
@@ -133,9 +133,13 @@ def inittime():
 
 
 reloadtime=int(time.perf_counter())
+firsttime=1
 while 1:
     currenttime=int(time.perf_counter())
     if currenttime%reloadtime == 0:
+        if firsttime:
+            inittime()
+            reloadtime=
         print(currenttime)
         time.sleep(1)
     else:
