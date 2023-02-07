@@ -4,6 +4,7 @@ import yaml
 import kubernetes.client
 import base64
 import time
+
 timeout_seconds=30
 
 def getControllerMasterIP():
@@ -111,17 +112,23 @@ def checkconfigreloadtime():
         if item['job_name']=='cluster1':
             return item['scrape_interval']
 
+def getformule(minlevel, timemax, maxlevel, timemin):
+    m=(int(timemin)-int(timemax))/(int(maxlevel)-int(minlevel))
+    b=(float(timemax)-(m*float(minlevel)))
+
+    return m,b
+
 def inittime():
     scrtime=getconfigstatus()
-    scrtime=scrtime.strip("s")
-    #print(time.time())
-    savefirst=time.time()
+    scrtime=scrtime.strip("s") 
     changereloadtime(int(scrtime))
     #print(checkconfigreloadtime())
-    
+    #savefirst=time.perf_counter()
+
+
     f=open("logs.csv","a")
     
-    #print(str(int(scrtime)+1) + 's')
+    print(str(int(scrtime)+1) + 's')
     while 1:
         if checkconfigreloadtime() == str(int(scrtime)+1) + 's':
             saveend=time.time()
@@ -132,33 +139,30 @@ def inittime():
             time.sleep(0.2)
             #print(checkconfigreloadtime())
 
-    print(saveend-savefirst)
+    print(saveend)
     f.close()
-    return int(saveend)
     #print(scrtime)
 
 
-#changereloadtime(0)
-# for i in range(0,60):
-#     print(str(i)+": ")
-# for i in range(0,3):
-#     reloadstart=time.time()
-#     if reloadstart%
-#     reloadend=inittime()
-#     print(reloadstart, reloadend)
-#     time.sleep(10)
 
-
-
+if __name__ == "__main__":
+    minlevel, timemax, maxlevel, timemin=0,60,85,5
+    m,b=getformule(minlevel, timemax, maxlevel, timemin)
+    firsttime=0
+    print(m,b)
+    while 1:
+        if firsttime==0:
+             
 # reloadtime=int(time.perf_counter())
-saveend=1
-while 1:
-    currenttime=int(time.time())
-    print(currenttime,saveend)
-    if (currenttime-saveend)%50==0 or saveend==1:
-        if saveend==1:
-            saveend=inittime()
-        else:
-            test=inittime()
-    else:
-        time.sleep(1)
+# firsttime=1
+# while 1:
+#     currenttime=int(time.perf_counter())
+#     if currenttime%reloadtime == 0:
+#         if firsttime:
+#             inittime()
+#             reloadtime=
+#         print(currenttime)
+#         time.sleep(1)
+#         time.sleep(1)
+#     else:
+#         time.sleep(1)
