@@ -11,7 +11,7 @@ from aiohttp import ClientSession
 ipdict={}
 portdict={}
 timedict={}
-clusterdict=()
+clusterdict={}
 
 timeout_seconds = 30
 
@@ -60,30 +60,38 @@ def read_member_cluster():
     f = open("/root/member", 'r')
     for line in f.readlines():
         ip, port, cluster=parse_ip_port_name(line)
-        scrapelist.append(ip)
         ipdict[cluster]=ip
         portdict[cluster]=port
         clusterdict[cluster]=cluster
         timedict[cluster]=0
     f.close()
-    
+
+
+def removetime(text):
+    origdata = text.strip('\n')
+
+
+
+
 async def fetch(link, session, requestclustername):
     # try:
     prom_header = {'Accept-Encoding': 'gzip'}
     async with session.get(url=link,headers=prom_header) as response:
         html_body = await response.text()
-        print(html_body)
-        posttogateway(requestclustername,ipdict[requestclustername],html_body)
+        #print(html_body)
+    print(requestclustername)
+    final_metrics=removetime(html_body)
+    posttogateway(requestclustername,ipdict[requestclustername],final_metrics)
         #removetime(html_body)
     # except:
     #     print("Get metrics failed")
 
-async def asyncgetmetrics(links):
+async def asyncgetmetrics(links,requestclustername):
     async with ClientSession() as session:
-        tasks = [asyncio.create_task(fetch(link, session, requestclustername)) for link in links]  # 建立任務清單
+        tasks = [asyncio.create_task(fetch(link, session, requestclustername[links.index(link)])) for link in links]  # 建立任務清單
         await asyncio.gather(*tasks)
 
-#def removetime(text):
+
 
 
 def gettargets(cluster):
@@ -127,10 +135,10 @@ if __name__ == "__main__":
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     #while 1:
+    requestclustername=[]
+    requesturl=[]
     for cluster in ipdict:
         if timedict[cluster]==0:
-            requesturl=[]
-            requestclustername=[]
             scrapeurl=gettargets(cluster)
             requesturl.append(getrequesturl(cluster,scrapeurl))
             requestclustername.append(cluster)
