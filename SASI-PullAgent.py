@@ -48,6 +48,7 @@ def posttogateway(clustername,instance, name):
     gateway_port="9091"
     url = "http://" + str(gateway_host) + ":" + str(gateway_port) + "/metrics/job/" + clustername + "/instance/" + instance
     res = post(url=url,data=name,headers={'Content-Type': 'application/octet-stream'})
+    print(res)
     end = time.perf_counter()
     timewriter("posttogateway" + " " + str(end-start))
 
@@ -66,10 +67,25 @@ def read_member_cluster():
         timedict[cluster]=0
     f.close()
 
+def parsemetrics(textline):
+    origdata = textline.strip('\n')
+    if "}" in origdata:
+        firstparse = origdata.split("}")
+        parseddata = firstparse[1].split(" ")
+    else:
+        parseddata = origdata.split(" ")
+    metric=firstparse[0]+"}"+" "+parseddata[1]+"\n"
+    return str(metric)
 
 def removetime(text):
-    origdata = text.strip('\n')
+    final_metrics=""
+    for line in text.splitlines(True):
+        if line[0] == "#":
+            final_metrics+=line
+        else:
+            final_metrics+=parsemetrics(line)
 
+    return final_metrics
 
 
 
@@ -78,10 +94,13 @@ async def fetch(link, session, requestclustername):
     prom_header = {'Accept-Encoding': 'gzip'}
     async with session.get(url=link,headers=prom_header) as response:
         html_body = await response.text()
-        #print(html_body)
-    print(requestclustername)
     final_metrics=removetime(html_body)
-    posttogateway(requestclustername,ipdict[requestclustername],final_metrics)
+    print(final_metrics)
+    #test="# TYPE test_metrics counter"+"\n"+"test_metrics{label=\"app1\",name=\"demo\"} 100"
+    #test="# TYPE test_metrics counter"+"\n"+"test_metrics 100"+"\n"
+    #binary_converted = ' '.join(format(c, 'b') for c in bytearray(test, "utf-8"))
+    test2=bytes(final_metrics,'utf-8')
+    posttogateway(requestclustername,ipdict[requestclustername],test2)
         #removetime(html_body)
     # except:
     #     print("Get metrics failed")
@@ -90,9 +109,6 @@ async def asyncgetmetrics(links,requestclustername):
     async with ClientSession() as session:
         tasks = [asyncio.create_task(fetch(link, session, requestclustername[links.index(link)])) for link in links]  # 建立任務清單
         await asyncio.gather(*tasks)
-
-
-
 
 def gettargets(cluster):
     start = time.perf_counter()
