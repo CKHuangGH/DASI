@@ -12,7 +12,8 @@ ipdict={}
 portdict={}
 timedict={}
 clusterdict={}
-
+metricsnamedict={}
+errorlist=["go_gc_duration_seconds_sum","go_gc_duration_seconds_count"]
 timeout_seconds = 30
 
 logging.basicConfig(level=logging.INFO)
@@ -42,12 +43,15 @@ def timewriter(text):
     except:
         print("Write error")
 
-def posttogateway(clustername,instance, name):
+def posttogateway(clustername,instance,name):
     start = time.perf_counter()
     gateway_host="127.0.0.1"
     gateway_port="9091"
-    url = "http://" + str(gateway_host) + ":" + str(gateway_port) + "/metrics/job/" + clustername + "/instance/" + instance
+
+    url = "http://" + str(gateway_host) + ":" + str(gateway_port) + "/metrics/job/" + clustername
     res = post(url=url,data=name,headers={'Content-Type': 'application/octet-stream'})
+    # with open("data","rb") as fp:
+    #     res = post(url=url,data=fp,headers={'Content-Type': 'application/octet-stream'})
     print(res)
     end = time.perf_counter()
     timewriter("posttogateway" + " " + str(end-start))
@@ -67,40 +71,79 @@ def read_member_cluster():
         timedict[cluster]=0
     f.close()
 
+# def parsemetrics(textline):
+#     origdata = textline.strip('\n')
+#     labels=""
+#     if "{" in origdata:
+#         firstparse = origdata.split("{")
+#         secondparse=firstparse[1].split("}")
+#         thridparse=secondparse[0].split(",")
+#         #print(secondparse)
+#         value=secondparse[1].split(" ")
+#         for item in thridparse:
+#             # if item!="job=\"node-exporter\"" or item!="container=\"node-exporter\"" or item!="endpoint=\"http-metrics\"" or item!="namespace=\"monitoring\"" or item!="endpoint=\"http-metrics\"":
+#             #     labels+=item+","
+#             findinstance=item.split("=")
+#             #print(findinstance[0])
+#             if findinstance[0] == "instance":
+#                 labels+="server="+findinstance[1]+","
+#             elif item!="job=\"node-exporter\"":
+#                 labels+=item+","
+#     metric=firstparse[0]+"{"+str(labels[:-1])+"} "+value[1]+"\n"
+#     return str(metric)
+
 def parsemetrics(textline):
     origdata = textline.strip('\n')
+    labels=""
     if "}" in origdata:
         firstparse = origdata.split("}")
-        parseddata = firstparse[1].split(" ")
-    else:
-        parseddata = origdata.split(" ")
-    metric=firstparse[0]+"}"+" "+parseddata[1]+"\n"
+        secondparse= firstparse[1].split(" ")
+    metric=firstparse[0]+"} "+secondparse[1]+"\n"
     return str(metric)
+
+def parsenameandtype(data):
+    origdata = data.strip('\n')
+    parseddata = origdata.split(" ")
+    if parseddata[0]=="#":
+        return str(parseddata[2])
+    else:
+        return str(parseddata[0]),str(parseddata[1])
+
+def getname(textline):
+    origdata = textline.strip('\n')
+    if "{" in origdata:
+        firstparse = origdata.split("{")
+    return str(firstparse[0])
+
 
 def removetime(text):
     final_metrics=""
     for line in text.splitlines(True):
         if line[0] == "#":
-            final_metrics+=line
+            #final_metrics+=line
+            name=parsenameandtype(line)
+            #print(name)
+            if name in metricsnamedict:
+                newtype="# TYPE "+str(name)+" "+str(metricsnamedict[name]+"\n")
+                final_metrics+=newtype
+            elif name not in errorlist:
+                final_metrics+=line
+            
         else:
-            final_metrics+=parsemetrics(line)
+            nameforcheck=getname(line)
+            if nameforcheck not in errorlist:
+                final_metrics+=parsemetrics(line)
 
     return final_metrics
-
-
 
 async def fetch(link, session, requestclustername):
     # try:
     prom_header = {'Accept-Encoding': 'gzip'}
     async with session.get(url=link,headers=prom_header) as response:
         html_body = await response.text()
-    final_metrics=removetime(html_body)
-    print(final_metrics)
-    #test="# TYPE test_metrics counter"+"\n"+"test_metrics{label=\"app1\",name=\"demo\"} 100"
-    #test="# TYPE test_metrics counter"+"\n"+"test_metrics 100"+"\n"
-    #binary_converted = ' '.join(format(c, 'b') for c in bytearray(test, "utf-8"))
-    test2=bytes(final_metrics,'utf-8')
-    posttogateway(requestclustername,ipdict[requestclustername],test2)
+        final_metrics=removetime(html_body)
+        strtobyte=bytes(final_metrics,'utf-8')
+        posttogateway(requestclustername,ipdict[requestclustername],strtobyte)
         #removetime(html_body)
     # except:
     #     print("Get metrics failed")
@@ -146,8 +189,16 @@ def getrequesturl(cluster,scrapeurl):
     final_url=fullurl[:-1]
     return final_url
 
+def read_type():
+    f = open("/root/type", 'r')
+    for line in f.readlines():
+        name,type=parsenameandtype(line)
+        metricsnamedict[name]=type
+    f.close()
+
 if __name__ == "__main__":
     read_member_cluster()
+    read_type()
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     #while 1:
