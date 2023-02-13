@@ -5,12 +5,13 @@ import kubernetes.client
 import asyncio
 import requests
 from aiohttp import ClientSession
+from prometheus_api_client import PrometheusConnect
 
 ipdict={}
 portdict={}
 timedict={}
-clusterdict={}
 metricstypedict={}
+cpustatus={}
 errorlist=["go_gc_duration_seconds_sum","go_gc_duration_seconds_count"]
 timeout_seconds = 30
 
@@ -60,7 +61,6 @@ def read_member_cluster():
         ip, port, cluster=parse_ip_port_name(member)
         ipdict[cluster]=ip
         portdict[cluster]=port
-        clusterdict[cluster]=cluster
         timedict[cluster]=0
     f.close()
 
@@ -164,18 +164,73 @@ def read_type():
         metricstypedict[name]=type
     f.close()
 
+def decidetime(cluster, minlevel, timemax, maxlevel, timemin):
+    start = time.perf_counter()
+    current=resources[cluster]
+    if current >= minlevel: 
+        answer=(m*current)+b
+        timedict[cluster]=int(answer)
+    elif current > maxlevel:
+        timedict[cluster]=timemin
+    else:
+        timedict[cluster]=timemax
+    scrapetime[cluster]=timedict[cluster]
+    end = time.perf_counter()
+    #timewriter("decidetime" + " " + str(end-start))
+
+def getformule(minlevel, timemax, maxlevel, timemin):
+    global m
+    m=(int(timemin)-int(timemax))/(int(maxlevel)-int(minlevel))
+    global b
+    b=(float(timemax)-(m*float(minlevel)))
+
+def getresources(cluster):
+    start = time.perf_counter()
+    prom_host = getControllerMasterIP()
+    prom_port = 30090
+    prom_url = "http://" + str(prom_host) + ":" + str(prom_port)
+    pc = PrometheusConnect(url=prom_url, disable_ssl=True)
+    querycpu="(1-sum(increase(node_cpu_seconds_total{job=\"" + cluster + "\",mode=\"idle\"}[15s]))/sum(increase(node_cpu_seconds_total{job=\"" + cluster + "\"}[15s])))*100"
+    queryram="sum (node_memory_MemFree_bytes{job=\"" + cluster + "\"})"
+    queryramall="sum (node_memory_MemFree_bytes{job=\"" + cluster + "\"})"
+    
+    resultcpu = pc.custom_query(query=querycpu)
+    if len(resultcpu) > 0:
+        cpu = float(resultcpu[0]['value'][1])
+    
+    resultram = pc.custom_query(query=queryram)
+    if len(resultram) > 0:
+        ram = float(resultram[0]['value'][1])  
+
+    resultramall = pc.custom_query(query=queryramall)
+    if len(resultramall) > 0:
+        ramall = float(resultram[0]['value'][1])       
+        
+    ramperc=(ramall-ram) / ramall
+    
+    end = time.perf_counter()
+    return max(cpu,ramperc)
+    #timewriter("getresources" + " " + str(end-start))
+
+
 if __name__ == "__main__":
     read_member_cluster()
     read_type()
+    minlevel, timemax, maxlevel, timemin=20,60,40,5
+    getformule(minlevel, timemax, maxlevel, timemin)
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     while 1:
         requestclustername=[]
         requesturl=[]
         for cluster in ipdict:
+            print(cluster)
             if timedict[cluster]==0:
                 scrapeurl=gettargets(cluster)
                 requesturl.append(getrequesturl(cluster,scrapeurl))
                 requestclustername.append(cluster)
+                nowstatus=getresources(cluster)
+                timedict[cluster]=decidetime(cluster)
         loop.run_until_complete(asyncgetmetrics(requesturl,requestclustername))
+
         time.sleep(5)
