@@ -12,6 +12,7 @@ portdict={}
 timedict={}
 metricstypedict={}
 cpustatus={}
+ramstatus={}
 errorlist=["go_gc_duration_seconds_sum","go_gc_duration_seconds_count"]
 timeout_seconds = 30
 
@@ -61,7 +62,7 @@ def read_member_cluster():
         ip, port, cluster=parse_ip_port_name(member)
         ipdict[cluster]=ip
         portdict[cluster]=port
-        timedict[cluster]=0
+        timedict[cluster]=1
     f.close()
 
 def parsemetrics(text):
@@ -137,6 +138,7 @@ def gettargets(cluster):
                 scrapeurl.append(item["scrapeUrl"])
     end = time.perf_counter()
     timewriter("gettargets" + " " + str(end-start))
+    
     return scrapeurl
 
 def parsetargetip(text):
@@ -145,6 +147,8 @@ def parsetargetip(text):
     return str(parseddata[2])
 
 def getrequesturl(cluster,scrapeurl):
+    start = time.perf_counter()
+    
     scrapeip=[]
     for url in scrapeurl:
         scrapeip.append(parsetargetip(url))
@@ -154,7 +158,9 @@ def getrequesturl(cluster,scrapeurl):
     for ipwithport in scrapeip:
         fullurl=fullurl+"match[]={instance=~\""+ipwithport+"\"}&"
     final_url=fullurl[:-1]
-    
+
+    end = time.perf_counter()
+    timewriter("getrequesturl" + " " + str(end-start))
     return final_url
 
 def read_type():
@@ -163,20 +169,6 @@ def read_type():
         name,type=parsenameandtype(line)
         metricstypedict[name]=type
     f.close()
-
-def decidetime(cluster, minlevel, timemax, maxlevel, timemin):
-    start = time.perf_counter()
-    current=resources[cluster]
-    if current >= minlevel: 
-        answer=(m*current)+b
-        timedict[cluster]=int(answer)
-    elif current > maxlevel:
-        timedict[cluster]=timemin
-    else:
-        timedict[cluster]=timemax
-    scrapetime[cluster]=timedict[cluster]
-    end = time.perf_counter()
-    #timewriter("decidetime" + " " + str(end-start))
 
 def getformule(minlevel, timemax, maxlevel, timemin):
     global m
@@ -192,45 +184,73 @@ def getresources(cluster):
     pc = PrometheusConnect(url=prom_url, disable_ssl=True)
     querycpu="(1-sum(increase(node_cpu_seconds_total{job=\"" + cluster + "\",mode=\"idle\"}[15s]))/sum(increase(node_cpu_seconds_total{job=\"" + cluster + "\"}[15s])))*100"
     queryram="sum (node_memory_MemFree_bytes{job=\"" + cluster + "\"})"
-    queryramall="sum (node_memory_MemFree_bytes{job=\"" + cluster + "\"})"
+    queryramall="sum (node_memory_MemTotal_bytes{job=\"" + cluster + "\"})"
     
     resultcpu = pc.custom_query(query=querycpu)
     if len(resultcpu) > 0:
         cpu = float(resultcpu[0]['value'][1])
+    else:
+        cpu=-1
     
     resultram = pc.custom_query(query=queryram)
     if len(resultram) > 0:
-        ram = float(resultram[0]['value'][1])  
+        ram = float(resultram[0]['value'][1])
+    else:
+        ram=-1
 
     resultramall = pc.custom_query(query=queryramall)
     if len(resultramall) > 0:
-        ramall = float(resultram[0]['value'][1])       
-        
-    ramperc=(ramall-ram) / ramall
-    
-    end = time.perf_counter()
-    return max(cpu,ramperc)
-    #timewriter("getresources" + " " + str(end-start))
+        ramall = float(resultramall[0]['value'][1])
+    else:
+        ramall=-1
 
+    if cpu==-1 or cpu==0:
+        cpu=cpustatus[cluster]
+    elif ramall==-1 or ram==-1:
+        ramperc=ramstatus[cluster]
+    else:
+        ramperc=(ramall-ram)/ramall
+        cpustatus[cluster]=cpu
+        ramstatus[cluster]=ramperc
+
+    print(cluster)
+    print("cpu-status: " + str(cpu)+"%")
+    print("ram-status: " + str(ramperc)+"%")
+    end = time.perf_counter()
+    timewriter("getresources" + " " + str(end-start))
+    return max(cpu,ramperc)
+    
+def decidetime(nowstatus, minlevel, timemax, maxlevel, timemin):
+    start = time.perf_counter()
+    if nowstatus >= minlevel and nowstatus < maxlevel: 
+        answer=(m*nowstatus)+b
+    elif nowstatus >= maxlevel:
+        answer=timemin
+    else:
+        answer=timemax
+
+    end = time.perf_counter()
+    timewriter("decidetime" + " " + str(end-start))
+    return answer
 
 if __name__ == "__main__":
     read_member_cluster()
     read_type()
-    minlevel, timemax, maxlevel, timemin=20,60,40,5
+    minlevel, timemax, maxlevel, timemin=0,60,60,5
     getformule(minlevel, timemax, maxlevel, timemin)
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     while 1:
+        totalstart = time.perf_counter()
         requestclustername=[]
         requesturl=[]
         for cluster in ipdict:
-            print(cluster)
-            if timedict[cluster]==0:
+            timedict[cluster]-=1
+            if timedict[cluster]<=0:
                 scrapeurl=gettargets(cluster)
                 requesturl.append(getrequesturl(cluster,scrapeurl))
                 requestclustername.append(cluster)
                 nowstatus=getresources(cluster)
-                timedict[cluster]=decidetime(cluster)
+                timedict[cluster]=decidetime(nowstatus, minlevel, timemax, maxlevel, timemin)
         loop.run_until_complete(asyncgetmetrics(requesturl,requestclustername))
-
-        time.sleep(5)
+        time.sleep(1)
