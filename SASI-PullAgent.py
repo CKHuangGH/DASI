@@ -184,7 +184,7 @@ def getresources(cluster):
     prom_port = 30090
     prom_url = "http://" + str(prom_host) + ":" + str(prom_port)
     pc = PrometheusConnect(url=prom_url, disable_ssl=True)
-    querycpu="(1-sum(increase(node_cpu_seconds_total{job=\"" + cluster + "\",mode=\"idle\"}[3m]))/sum(increase(node_cpu_seconds_total{job=\"" + cluster + "\"}[3m])))*100"
+    querycpu="(1-sum(increase(node_cpu_seconds_total{job=\"" + cluster + "\",mode=\"idle\"}[15s]))/sum(increase(node_cpu_seconds_total{job=\"" + cluster + "\"}[15s])))*100"
     queryram="sum (node_memory_MemFree_bytes{job=\"" + cluster + "\"})"
     queryramall="sum (node_memory_MemTotal_bytes{job=\"" + cluster + "\"})"
     
