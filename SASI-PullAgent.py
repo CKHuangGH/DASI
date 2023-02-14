@@ -6,6 +6,8 @@ import asyncio
 import requests
 from aiohttp import ClientSession
 from prometheus_api_client import PrometheusConnect
+import logging
+import math
 
 ipdict={}
 portdict={}
@@ -182,7 +184,7 @@ def getresources(cluster):
     prom_port = 30090
     prom_url = "http://" + str(prom_host) + ":" + str(prom_port)
     pc = PrometheusConnect(url=prom_url, disable_ssl=True)
-    querycpu="(1-sum(increase(node_cpu_seconds_total{job=\"" + cluster + "\",mode=\"idle\"}[15s]))/sum(increase(node_cpu_seconds_total{job=\"" + cluster + "\"}[15s])))*100"
+    querycpu="(1-sum(increase(node_cpu_seconds_total{job=\"" + cluster + "\",mode=\"idle\"}[3m]))/sum(increase(node_cpu_seconds_total{job=\"" + cluster + "\"}[3m])))*100"
     queryram="sum (node_memory_MemFree_bytes{job=\"" + cluster + "\"})"
     queryramall="sum (node_memory_MemTotal_bytes{job=\"" + cluster + "\"})"
     
@@ -204,14 +206,14 @@ def getresources(cluster):
     else:
         ramall=-1
 
-    if cpu==-1 or cpu==0:
+    if cpu==-1 or cpu==0 or math.isnan(cpu):
         cpu=cpustatus[cluster]
-    elif ramall==-1 or ram==-1:
+    if ramall==-1 or ram==-1:
         ramperc=ramstatus[cluster]
-    else:
-        ramperc=(ramall-ram)/ramall
-        cpustatus[cluster]=cpu
-        ramstatus[cluster]=ramperc
+
+    ramperc=(ramall-ram)/ramall
+    cpustatus[cluster]=cpu
+    ramstatus[cluster]=ramperc
 
     print(cluster)
     print("cpu-status: " + str(cpu)+"%")
@@ -255,8 +257,9 @@ if __name__ == "__main__":
                     nowstatus=getresources(cluster)
                     timedict[cluster]=decidetime(nowstatus, minlevel, timemax, maxlevel, timemin)
                 else:
-                    cpustatus[cluster]=0
-                    ramstatus[cluster]=0
+                    cpustatus[cluster]=maxlevel
+                    ramstatus[cluster]=maxlevel
+        print(cpustatus,ramstatus,timedict)
         loop.run_until_complete(asyncgetmetrics(requesturl,requestclustername))
         time.sleep(1)
         init=0
