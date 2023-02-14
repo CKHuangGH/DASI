@@ -255,6 +255,8 @@ if __name__ == "__main__":
                     nowstatus=getresources(cluster)
                     timedict[cluster]=decidetime(nowstatus, minlevel, timemax, maxlevel, timemin)
                 else:
-                    init=0
+                    cpustatus[cluster]=0
+                    ramstatus[cluster]=0
         loop.run_until_complete(asyncgetmetrics(requesturl,requestclustername))
         time.sleep(1)
+        init=0
