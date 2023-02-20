@@ -43,6 +43,14 @@ def timewriter(text):
     except:
         print("Write error")
 
+def logwriter(text):
+    try:
+        f = open("scrapetime", 'a')
+        f.write(text+"\n")
+        f.close()
+    except:
+        print("Write error")
+
 def posttogateway(clustername,data):
     start = time.perf_counter()
     gateway_host="127.0.0.1"
@@ -184,7 +192,8 @@ def getresources(cluster):
     prom_port = 30090
     prom_url = "http://" + str(prom_host) + ":" + str(prom_port)
     pc = PrometheusConnect(url=prom_url, disable_ssl=True)
-    querycpu="(1-sum(increase(node_cpu_seconds_total{job=\"" + cluster + "\",mode=\"idle\"}[2m]))/sum(increase(node_cpu_seconds_total{job=\"" + cluster + "\"}[2m])))*100"
+    querycpu="record5s{cluster_name=\"" + cluster + "\"}"
+    # querycpu="(1-sum(increase(node_cpu_seconds_total{job=\"" + cluster + "\",mode=\"idle\"}[2m]))/sum(increase(node_cpu_seconds_total{job=\"" + cluster + "\"}[2m])))*100"
     queryram="sum (node_memory_MemFree_bytes{job=\"" + cluster + "\"})"
     queryramall="sum (node_memory_MemTotal_bytes{job=\"" + cluster + "\"})"
     
@@ -256,6 +265,7 @@ if __name__ == "__main__":
                 if init!=1:
                     nowstatus=getresources(cluster)
                     timedict[cluster]=decidetime(nowstatus, minlevel, timemax, maxlevel, timemin)
+                    logwriter(str(cluster)+": "+str(timedict[cluster]))
                 else:
                     cpustatus[cluster]=maxlevel
                     ramstatus[cluster]=maxlevel
