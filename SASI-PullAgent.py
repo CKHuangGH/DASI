@@ -64,16 +64,18 @@ def posttogateway(clustername,data):
 def parse_ip_port_name(member):
     origdata = member.strip('\n')
     parseddata = origdata.split(":")
-    return str(parseddata[0]), int(parseddata[1]), str(parseddata[2])
+    return str(parseddata[0]), int(parseddata[1]), str(parseddata[2]),str(parseddata[3])
 
 def read_member_cluster():
     f = open("/root/member", 'r')
     for member in f.readlines():
-        ip, port, cluster=parse_ip_port_name(member)
+        ip, port, cluster, maxlevel=parse_ip_port_name(member)
         ipdict[cluster]=ip
         portdict[cluster]=port
         timedict[cluster]=1
     f.close()
+    return maxlevel
+    
 
 def parsemetrics(text):
     origdata = text.strip('\n')
@@ -224,6 +226,8 @@ def getresources(cluster):
     cpustatus[cluster]=cpu
     ramstatus[cluster]=ramperc
 
+    logwriter(str(cluster)+":"+str(timedict[cluster])+":"+str(time.time()))
+
     print(cluster)
     print("cpu-status: " + str(cpu)+"%")
     print("ram-status: " + str(ramperc)+"%")
@@ -245,9 +249,9 @@ def decidetime(nowstatus, minlevel, timemax, maxlevel, timemin):
     return answer
 
 if __name__ == "__main__":
-    read_member_cluster()
+    maxlevel=read_member_cluster()
     read_type()
-    minlevel, timemax, maxlevel, timemin=0,60,60,5
+    minlevel, timemax, timemin=0,60,5
     getformule(minlevel, timemax, maxlevel, timemin)
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
@@ -265,10 +269,12 @@ if __name__ == "__main__":
                 if init!=1:
                     nowstatus=getresources(cluster)
                     timedict[cluster]=decidetime(nowstatus, minlevel, timemax, maxlevel, timemin)
-                    logwriter(str(cluster)+": "+str(timedict[cluster]))
+                    logwriter(str(cluster)+":"+str(timedict[cluster])+":"+str(time.time()))
                 else:
                     cpustatus[cluster]=maxlevel
                     ramstatus[cluster]=maxlevel
+                    timedict[cluster]=timemin
+                    logwriter(str(cluster)+":"+str(timedict[cluster])+":"+str(time.time()))
         print(cpustatus,ramstatus,timedict)
         loop.run_until_complete(asyncgetmetrics(requesturl,requestclustername))
         time.sleep(1)
