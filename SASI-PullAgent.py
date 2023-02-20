@@ -226,7 +226,7 @@ def getresources(cluster):
     cpustatus[cluster]=cpu
     ramstatus[cluster]=ramperc
 
-    logwriter(str(cluster)+":"+str(timedict[cluster])+":"+str(time.time()))
+    logwriter(str(cluster)+":"+str(cpustatus[cluster])+":"+str(ramstatus[cluster])+":"+str(time.time()))
 
     print(cluster)
     print("cpu-status: " + str(cpu)+"%")
