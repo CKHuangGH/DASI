@@ -74,7 +74,7 @@ def read_member_cluster():
         portdict[cluster]=port
         timedict[cluster]=1
     f.close()
-    return maxlevel
+    return int(maxlevel)
     
 
 def parsemetrics(text):
@@ -194,7 +194,7 @@ def getresources(cluster):
     prom_port = 30090
     prom_url = "http://" + str(prom_host) + ":" + str(prom_port)
     pc = PrometheusConnect(url=prom_url, disable_ssl=True)
-    querycpu="avg (record5s{job=\"" + cluster + "\"})"
+    querycpu="100-avg (record5s{job=\"" + cluster + "\"})"
     # querycpu="(1-sum(increase(node_cpu_seconds_total{job=\"" + cluster + "\",mode=\"idle\"}[2m]))/sum(increase(node_cpu_seconds_total{job=\"" + cluster + "\"}[2m])))*100"
     queryram="sum (node_memory_MemFree_bytes{job=\"" + cluster + "\"})"
     queryramall="sum (node_memory_MemTotal_bytes{job=\"" + cluster + "\"})"
