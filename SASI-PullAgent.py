@@ -256,6 +256,9 @@ if __name__ == "__main__":
     getformule(minlevel, timemax, maxlevel, timemin)
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
+    scrapeurldict={}
+    for cluster in ipdict:
+        scrapeurldict.setdefault(cluster,gettargets(cluster))
     init=1
     while 1:
         totalstart = time.perf_counter()
@@ -264,8 +267,7 @@ if __name__ == "__main__":
         for cluster in ipdict:
             timedict[cluster]-=1
             if timedict[cluster]<=0:
-                scrapeurl=gettargets(cluster)
-                requesturl.append(getrequesturl(cluster,scrapeurl))
+                requesturl.append(getrequesturl(cluster,scrapeurldict[cluster]))
                 requestclustername.append(cluster)
                 if init!=1:
                     nowstatus=getresources(cluster)
