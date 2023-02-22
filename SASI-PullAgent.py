@@ -120,6 +120,7 @@ def removetime(text):
 async def fetch(link, session, requestclustername):
     try:
         prom_header = {'Accept-Encoding': 'gzip'}
+        print("hello")
         async with session.get(url=link,headers=prom_header) as response:
             html_body = await response.text()
             final_metrics=removetime(html_body)
@@ -275,7 +276,9 @@ if __name__ == "__main__":
                     ramstatus[cluster]=maxlevel
                     timedict[cluster]=timemin
                     logwriter(str(cluster)+":"+str(timedict[cluster])+":"+str(time.time()))
-        print(cpustatus,ramstatus,timedict)
-        loop.run_until_complete(asyncgetmetrics(requesturl,requestclustername))
+        #print(cpustatus,ramstatus,timedict)
+        #print(requesturl,requestclustername)
+        if len(requesturl)>0:
+            loop.run_until_complete(asyncgetmetrics(requesturl,requestclustername))
         time.sleep(1)
         init=0
