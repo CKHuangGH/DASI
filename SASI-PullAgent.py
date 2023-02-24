@@ -6,7 +6,6 @@ import asyncio
 import requests
 from aiohttp import ClientSession
 from prometheus_api_client import PrometheusConnect
-import logging
 import math
 
 ipdict={}
@@ -16,6 +15,7 @@ metricstypedict={}
 cpustatus={}
 ramstatus={}
 errorlist=["go_gc_duration_seconds_sum","go_gc_duration_seconds_count"]
+
 timeout_seconds = 30
 
 def getControllerMasterIP():
@@ -52,14 +52,14 @@ def logwriter(text):
         print("Write error")
 
 def posttogateway(clustername,data):
-    start = time.perf_counter()
+    # start = time.perf_counter()
     gateway_host="127.0.0.1"
     gateway_port="9091"
 
     url = "http://" + str(gateway_host) + ":" + str(gateway_port) + "/metrics/job/" + clustername
     post(url=url,data=data,headers={'Content-Type': 'application/octet-stream'})
-    end = time.perf_counter()
-    timewriter("posttogateway" + " " + str(end-start))
+    # end = time.perf_counter()
+    # timewriter("posttogateway" + " " + str(end-start))
 
 def parse_ip_port_name(member):
     origdata = member.strip('\n')
@@ -120,7 +120,6 @@ def removetime(text):
 async def fetch(link, session, requestclustername):
     try:
         prom_header = {'Accept-Encoding': 'gzip'}
-        print("hello")
         async with session.get(url=link,headers=prom_header) as response:
             html_body = await response.text()
             final_metrics=removetime(html_body)
@@ -135,7 +134,7 @@ async def asyncgetmetrics(links,requestclustername):
         await asyncio.gather(*tasks)
 
 def gettargets(cluster):
-    start = time.perf_counter()
+    # start = time.perf_counter()
     prom_host=ipdict[cluster]
     prom_port = 30090
     prom_url = "http://" + str(prom_host) + ":" + \
@@ -149,8 +148,8 @@ def gettargets(cluster):
         if item["labels"]["job"] == "node-exporter":
             if item["labels"]["instance"] != nomaster:
                 scrapeurl.append(item["scrapeUrl"])
-    end = time.perf_counter()
-    timewriter("gettargets" + " " + str(end-start))
+    # end = time.perf_counter()
+    # timewriter("gettargets" + " " + str(end-start))
     
     return scrapeurl
 
@@ -160,7 +159,7 @@ def parsetargetip(text):
     return str(parseddata[2])
 
 def getrequesturl(cluster,scrapeurl):
-    start = time.perf_counter()
+    # start = time.perf_counter()
     
     scrapeip=[]
     for url in scrapeurl:
@@ -172,8 +171,8 @@ def getrequesturl(cluster,scrapeurl):
         fullurl=fullurl+"match[]={instance=~\""+ipwithport+"\"}&"
     final_url=fullurl[:-1]
 
-    end = time.perf_counter()
-    timewriter("getrequesturl" + " " + str(end-start))
+    # end = time.perf_counter()
+    # timewriter("getrequesturl" + " " + str(end-start))
     return final_url
 
 def read_type():
@@ -190,7 +189,7 @@ def getformule(minlevel, timemax, maxlevel, timemin):
     b=(float(timemax)-(m*float(minlevel)))
 
 def getresources(cluster):
-    start = time.perf_counter()
+    # start = time.perf_counter()
     prom_host = getControllerMasterIP()
     prom_port = 30090
     prom_url = "http://" + str(prom_host) + ":" + str(prom_port)
@@ -229,15 +228,15 @@ def getresources(cluster):
 
     logwriter(str(cluster)+":"+str(cpustatus[cluster])+":"+str(ramstatus[cluster])+":"+str(time.time()))
 
-    print(cluster)
-    print("cpu-status: " + str(cpu)+"%")
-    print("ram-status: " + str(ramperc)+"%")
-    end = time.perf_counter()
-    timewriter("getresources" + " " + str(end-start))
+    # print(cluster)
+    # print("cpu-status: " + str(cpu)+"%")
+    # print("ram-status: " + str(ramperc)+"%")
+    # end = time.perf_counter()
+    # timewriter("getresources" + " " + str(end-start))
     return max(cpu,ramperc)
     
 def decidetime(nowstatus, minlevel, timemax, maxlevel, timemin):
-    start = time.perf_counter()
+    #start = time.perf_counter()
     if nowstatus >= minlevel and nowstatus < maxlevel: 
         answer=(m*nowstatus)+b
     elif nowstatus >= maxlevel:
@@ -245,8 +244,8 @@ def decidetime(nowstatus, minlevel, timemax, maxlevel, timemin):
     else:
         answer=timemax
 
-    end = time.perf_counter()
-    timewriter("decidetime" + " " + str(end-start))
+    #end = time.perf_counter()
+    # timewriter("decidetime" + " " + str(end-start))
     return answer
 
 if __name__ == "__main__":
@@ -257,8 +256,11 @@ if __name__ == "__main__":
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     scrapeurldict={}
+    requesturldict={}
     for cluster in ipdict:
         scrapeurldict.setdefault(cluster,gettargets(cluster))
+        requesturldict.setdefault(cluster,getrequesturl(cluster,scrapeurldict[cluster]))
+    
     init=1
     while 1:
         totalstart = time.perf_counter()
@@ -267,7 +269,7 @@ if __name__ == "__main__":
         for cluster in ipdict:
             timedict[cluster]-=1
             if timedict[cluster]<=0:
-                requesturl.append(getrequesturl(cluster,scrapeurldict[cluster]))
+                requesturl.append(requesturldict[cluster])
                 requestclustername.append(cluster)
                 if init!=1:
                     nowstatus=getresources(cluster)

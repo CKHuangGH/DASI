@@ -52,6 +52,10 @@ spec:
         ports:
         - name: sasi
           containerPort: 54088
+        resources:
+          requests:
+            cpu: 300m
+            memory: 500Mi
       volumes:
       - name: kube-config
         hostPath:
