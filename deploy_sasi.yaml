@@ -38,6 +38,9 @@ spec:
       containers:
       - name: sasi-gateway
         image: prom/pushgateway:v1.5.1
+        command:
+        - /bin/pushgateway
+        - --log.level=error
         ports:
         - name: sasi-gateway
           containerPort: 9091
