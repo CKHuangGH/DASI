@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sasi-proxy
+  namespace: monitoring
+  labels:
+    name: sasi-proxy
+spec:
+  selector:
+    app: sasi-proxy
+  type: NodePort
+  ports:
+  - name: sasi-gateway
+    protocol: TCP
+    port: 9091
+    nodePort: 30901
+  - name: sasi-proxy
+    protocol: TCP
+    port: 54088
+    nodePort: 31000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sasi-proxy
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sasi-proxy
+  template:
+    metadata:
+      name: sasi-proxy
+      labels:
+        app: sasi-proxy
+    spec:
+      containers:
+      - name: sasi-gateway
+        image: prom/pushgateway:v1.5.1
+        command:
+        - /bin/pushgateway
+        - --log.level=error
+        ports:
+        - name: sasi-gateway
+          containerPort: 9091
+      - name: sasi-proxy
+        image: chuangtw/sasiproxy:latest
+        imagePullPolicy: Always
+        volumeMounts:
+        - mountPath: /root/.kube/config
+          name: kube-config
+        - mountPath: /root/member
+          name: member
+        ports:
+        - name: sasi
+          containerPort: 54088
+        resources:
+          requests:
+            cpu: 300m
+            memory: 500Mi
+      volumes:
+      - name: kube-config
+        hostPath:
+          path: /root/.kube/config
+          type: File
+      - name: member
+        hostPath:
+          path: /root/member
+          type: File
