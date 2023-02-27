@@ -7,6 +7,7 @@ import requests
 from aiohttp import ClientSession
 from prometheus_api_client import PrometheusConnect
 import math
+import statistics
 
 ipdict={}
 portdict={}
@@ -100,8 +101,19 @@ def getname(text):
         firstparse = origdata.split("{")
     return str(firstparse[0])
 
-def removetime(text):
+def findthevalue(text):
+    origdata = text.strip('\n')
+    if "}" in origdata:
+        firstparse = origdata.split("}")
+        secondparse= firstparse[1].split(" ")
+    return float(secondparse[1])
+
+def removetime(text,requestclustername):
     final_metrics=""
+    cpulist=[]
+    ramlist=[]
+    ramalllist=[]
+    avgcpu=0
     for line in text.splitlines(True):
         if line[0] == "#":
             name=parsenameandtype(line)
@@ -110,14 +122,27 @@ def removetime(text):
                 final_metrics+=newtype
             elif name not in errorlist:
                 final_metrics+=line
-            
         else:
             nameforcheck=getname(line)
             if nameforcheck == "record5s":
-
+                cpulist.append(findthevalue(line))
+            if nameforcheck == "node_memory_MemFree_bytes":
+                ramlist.append(findthevalue(line))
+            if nameforcheck == "node_memory_MemTotal_bytes":
+                ramalllist.append(findthevalue(line))
+                #print(avgcpu)
+                #print(findthevalue(line))
+                #cpulist.append()
+                #print(line)
+                
+                    
             if nameforcheck not in errorlist:
                 final_metrics+=parsemetrics(line)
-
+    avgcpu=statistics.mean(cpulist)
+    ram=statistics.mean(ramlist)
+    ramall=statistics.mean(ramalllist)
+    cpustatus()
+    print(avgcpu,ram)
     return final_metrics
 
 async def fetch(link, session, requestclustername):
@@ -125,7 +150,7 @@ async def fetch(link, session, requestclustername):
         prom_header = {'Accept-Encoding': 'gzip'}
         async with session.get(url=link,headers=prom_header) as response:
             html_body = await response.text()
-            final_metrics=removetime(html_body)
+            final_metrics=removetime(html_body,requestclustername)
             strtobyte=bytes(final_metrics,'utf-8')
             posttogateway(requestclustername,strtobyte)
     except:
