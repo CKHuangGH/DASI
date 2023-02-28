@@ -108,7 +108,7 @@ def findthevalue(text):
         secondparse= firstparse[1].split(" ")
     return float(secondparse[1])
 
-def removetime(text,requestclustername):
+def removetime(text,cluster):
     final_metrics=""
     cpulist=[]
     ramlist=[]
@@ -130,18 +130,13 @@ def removetime(text,requestclustername):
                 ramlist.append(findthevalue(line))
             if nameforcheck == "node_memory_MemTotal_bytes":
                 ramalllist.append(findthevalue(line))
-                #print(avgcpu)
-                #print(findthevalue(line))
-                #cpulist.append()
-                #print(line)
-                
-                    
             if nameforcheck not in errorlist:
                 final_metrics+=parsemetrics(line)
     avgcpu=statistics.mean(cpulist)
     ram=statistics.mean(ramlist)
     ramall=statistics.mean(ramalllist)
-    cpustatus()
+    cpustatus[cluster]=100-avgcpu
+    ramstatus[cluster]=(ramall-ram)/ramall
     print(avgcpu,ram)
     return final_metrics
 
@@ -299,8 +294,11 @@ if __name__ == "__main__":
             if timedict[cluster]<=0:
                 requesturl.append(requesturldict[cluster])
                 requestclustername.append(cluster)
+        if len(requesturl)>0:
+            loop.run_until_complete(asyncgetmetrics(requesturl,requestclustername))
+            for cluster in requestclustername:
                 if init!=1:
-                    nowstatus=getresources(cluster)
+                    nowstatus=max(cpustatus[cluster],ramstatus[cluster])
                     timedict[cluster]=decidetime(nowstatus, minlevel, timemax, maxlevel, timemin)
                     logwriter(str(cluster)+":"+str(timedict[cluster])+":"+str(time.time()))
                 else:
@@ -308,9 +306,6 @@ if __name__ == "__main__":
                     ramstatus[cluster]=maxlevel
                     timedict[cluster]=timemin
                     logwriter(str(cluster)+":"+str(timedict[cluster])+":"+str(time.time()))
-        #print(cpustatus,ramstatus,timedict)
-        #print(requesturl,requestclustername)
-        if len(requesturl)>0:
-            loop.run_until_complete(asyncgetmetrics(requesturl,requestclustername))
+                print(cluster)
         time.sleep(1)
         init=0
