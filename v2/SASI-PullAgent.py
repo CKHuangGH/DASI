@@ -137,7 +137,7 @@ def removetime(text,cluster):
     ramall=statistics.mean(ramalllist)
     cpustatus[cluster]=100-avgcpu
     ramstatus[cluster]=(ramall-ram)/ramall
-    print(avgcpu,ram)
+    #print(avgcpu,ram)
     return final_metrics
 
 async def fetch(link, session, requestclustername):
@@ -300,12 +300,11 @@ if __name__ == "__main__":
                 if init!=1:
                     nowstatus=max(cpustatus[cluster],ramstatus[cluster])
                     timedict[cluster]=decidetime(nowstatus, minlevel, timemax, maxlevel, timemin)
-                    logwriter(str(cluster)+":"+str(timedict[cluster])+":"+str(time.time()))
+                    logwriter(str(cluster)+":"+str(timedict[cluster])+":"+str(cpustatus[cluster])+":"+str(ramstatus[cluster])+":"+str(time.time()))
                 else:
                     cpustatus[cluster]=maxlevel
                     ramstatus[cluster]=maxlevel
                     timedict[cluster]=timemin
-                    logwriter(str(cluster)+":"+str(timedict[cluster])+":"+str(time.time()))
-                print(cluster)
+                    logwriter(str(cluster)+":"+str(timedict[cluster])+":"+str(cpustatus[cluster])+":"+str(ramstatus[cluster])+":"+str(time.time()))
         time.sleep(1)
         init=0
